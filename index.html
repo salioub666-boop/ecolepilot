@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google" content="notranslate">
+<title>ÉcolePilot</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏫%3C/text%3E%3C/svg%3E">
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--tx:#14213d;--mu:#64708a;--pr:#14325c;--prt:#fff;--ac:#1f8a5b;--bd:#dde3ec;--rd:#c0392b}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1626;--card:#16233a;--tx:#eaf0fa;--mu:#9aa9c2;--pr:#4f8ff0;--prt:#07101f;--ac:#3fb985;--bd:#27395a;--rd:#ef7a6b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:70px}
+#v{max-width:640px;margin:0 auto;padding:14px}
+h1{font-size:22px;margin:6px 0 14px}h2{font-size:18px;margin:0 0 10px}
+.c,.k{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;margin-bottom:10px}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:10px}.g .k{margin:0}
+.k small{display:block;color:var(--mu)}.k b{font-size:17px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer}
+.row small{display:block;color:var(--mu)}
+.t{padding:4px 10px;border-radius:99px;font-size:13px;font-weight:600;white-space:nowrap}
+.bad{color:var(--rd);border:1px solid var(--rd)}.ok{color:var(--ac);border:1px solid var(--ac)}
+input,select{width:100%;padding:13px;margin-bottom:10px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font:inherit}
+.b{display:inline-block;padding:13px 16px;border:0;border-radius:12px;background:var(--pr);color:var(--prt);font-weight:600;font-size:16px;font-family:inherit;text-decoration:none;text-align:center;cursor:pointer}
+.b.o{background:none;color:var(--pr);border:1.5px solid var(--pr)}
+.top{display:flex;justify-content:space-between;align-items:center}
+nav{position:fixed;left:0;right:0;bottom:0;display:none;background:var(--card);border-top:1px solid var(--bd)}
+nav button{flex:1;padding:13px 0;border:0;background:none;color:var(--mu);font-weight:600;font-size:13px;font-family:inherit;cursor:pointer}
+nav button.on{color:var(--pr)}
+.sh{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;z-index:9}
+.bx{background:var(--bg);width:100%;max-width:640px;border-radius:18px 18px 0 0;padding:16px;max-height:90%;overflow:auto}
+.bt{display:flex;gap:8px;margin:10px 0}.bt .b{flex:1}
+.mu{color:var(--mu)}.big{font-size:26px;font-weight:700;color:var(--ac)}.r{color:var(--rd)}
+#ts{position:fixed;left:12px;right:12px;bottom:80px;background:#222;color:#fff;padding:12px;border-radius:10px;display:none;z-index:99;text-align:center}
+@media print{body>*:not(#md){display:none}#md .sh{position:static;background:none}#md .bt,#md .b{display:none}}
+</style></head><body>
+<div id="v"></div><div id="md"></div><div id="ts"></div>
+<nav id="nv"><button data-t="home" onclick="go('home')">Accueil</button><button data-t="st" onclick="go('st')">Élèves</button><button data-t="un" onclick="go('un')">Impayés</button><button data-t="cl" onclick="go('cl')">Classes</button></nav>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
+<script>
+const U='https://qvuqsdeodyglvkcutzmm.supabase.co',K='sb_publishable_tdJp-0qNUw0RenOcDl8_mA_MaiPu0dv';
+const sb=window.supabase?window.supabase.createClient(U,K):null;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const F=n=>Math.round(n).toLocaleString('fr-FR').replace(/[\u202f\u00a0]/g,' ')+' FCFA';
+const today=()=>new Date().toISOString().slice(0,10);
+const fd=d=>String(d).slice(0,10).split('-').reverse().join('/');
+const MT={cash:'Espèces',mobile_money:'Mobile Money',transfer:'Virement',other:'Autre'};
+let me=null,mb=null,YR=null,FT=null,D={c:[],s:[],e:[],b:[],p:[]},tab='home',cur=null,q='',A=null;
+const toast=t=>{const x=$('#ts');x.textContent=t;x.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>x.style.display='none',4000)};
+const er=e=>{console.error(e);toast((e&&e.message)||'Une erreur est survenue')};
+const M=h=>{$('#md').innerHTML=h?`<div class="sh" onclick="if(event.target===this)M()"><div class="bx">${h}</div></div>`:''};
+const isDir=()=>mb&&mb.role==='director',isFin=()=>mb&&['director','accountant'].includes(mb.role);
+const sOf=id=>D.s.find(s=>s.id===id);
+const cn=sid=>{const e=D.e.find(x=>x.student_id===sid);return((e&&D.c.find(c=>c.id===e.class_id))||{}).name||'—'};
+const rest=sid=>D.b.filter(b=>b.student_id===sid).reduce((a,b)=>a+Number(b.balance),0);
+const due=sid=>D.b.filter(b=>b.student_id===sid).reduce((a,b)=>a+Number(b.amount_due),0);
+const wa=(ph,m)=>{let d=String(ph||'').replace(/\D/g,'');if(d.length==8)d='226'+d;return 'https://wa.me/'+d+'?text='+encodeURIComponent(m)};
+const remind=s=>`Bonjour ${s.guardian_name||''}, l’école ${mb.name} vous rappelle qu’il reste ${F(rest(s.id))} à régler pour la scolarité de ${s.first_name} ${s.last_name} (${cn(s.id)}). Merci.`;
+
+// ───── Connexion ─────
+function login(){
+  $('#nv').style.display='none';
+  $('#v').innerHTML=`<h1>ÉcolePilot</h1><div class="c"><input id="em" type="email" placeholder="Email" autocomplete="username"><input id="pw" type="password" placeholder="Mot de passe (8 caractères min.)" autocomplete="current-password"><div class="bt"><button class="b" onclick="auth(1)">Se connecter</button><button class="b o" onclick="auth(0)">Créer un compte</button></div></div><p class="mu">Gestion d’école simple et sécurisée.</p>`;
+}
+async function auth(inn){
+  const email=$('#em').value.trim(),password=$('#pw').value;
+  if(!email||password.length<8)return toast('Email et mot de passe (8 caractères min.) requis');
+  const r=inn?await sb.auth.signInWithPassword({email,password}):await sb.auth.signUp({email,password});
+  if(r.error)return er(r.error);
+  if(!inn&&!r.data.session)return toast('Compte créé. Vérifiez votre email pour confirmer, puis connectez-vous.');
+  boot();
+}
+async function logout(){await sb.auth.signOut();me=null;mb=null;login()}
+async function boot(){
+  if(!sb){$('#v').innerHTML='<p>Impossible de charger l’application. Vérifiez votre connexion internet.</p>';return}
+  const {data}=await sb.auth.getSession();me=data.session&&data.session.user;
+  if(!me)return login();
+  $('#v').innerHTML='<p class="mu">Chargement…</p>';
+  const r=await sb.from('school_memberships').select('school_id,role,schools(name)').eq('active',true).limit(1);
+  if(r.error)return er(r.error);
+  if(!r.data.length)return newSchool();
+  mb={sid:r.data[0].school_id,role:r.data[0].role,name:r.data[0].schools.name};
+  await ensure();await load();render();
+}
+function newSchool(){
+  $('#nv').style.display='none';
+  $('#v').innerHTML=`<h1>Créer mon école</h1><div class="c"><input id="sn" placeholder="Nom de l’école"><button class="b" style="width:100%" onclick="svSch()">Créer</button></div><button class="b o" onclick="logout()">Se déconnecter</button>`;
+}
+async function svSch(){
+  const r=await sb.rpc('create_school',{p_name:$('#sn').value});
+  if(r.error)return er(r.error);boot();
+}
+async function ensure(){
+  let y=await sb.from('academic_years').select('id').eq('is_current',true).limit(1);
+  if(y.data&&y.data.length)YR=y.data[0].id;
+  else if(isDir()){
+    const d=new Date(),y0=d.getMonth()>=8?d.getFullYear():d.getFullYear()-1;
+    const n=await sb.from('academic_years').insert({school_id:mb.sid,label:y0+'-'+(y0+1),starts_on:y0+'-10-01',ends_on:(y0+1)+'-07-15',is_current:true}).select('id').single();
+    if(n.error)er(n.error);else YR=n.data.id;
+  }
+  let f=await sb.from('fee_types').select('id').eq('name','Scolarité').limit(1);
+  if(f.data&&f.data.length)FT=f.data[0].id;
+  else if(isDir()){const n=await sb.from('fee_types').insert({school_id:mb.sid,name:'Scolarité'}).select('id').single();if(!n.error)FT=n.data.id}
+}
+async function load(){
+  const r=await Promise.all([
+    sb.from('classes').select('id,name').order('name'),
+    sb.from('students').select('id,matricule,last_name,first_name,guardian_name,guardian_phone').eq('status','active').order('last_name'),
+    sb.from('enrollments').select('student_id,class_id'),
+    sb.from('invoice_balances').select('*'),
+    sb.from('payments').select('*').order('created_at',{ascending:false})
+  ]);
+  const e=r.find(x=>x.error);if(e)er(e.error);
+  D={c:r[0].data||[],s:r[1].data||[],e:r[2].data||[],b:r[3].data||[],p:r[4].data||[]};
+}
+const go=t=>{tab=t;cur=null;render();scrollTo(0,0)};
+function render(){
+  $('#nv').style.display='flex';
+  $('#v').innerHTML=tab==='home'?home():tab==='st'?(cur?detail():students()):tab==='un'?unpaid():classes();
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
+}
+async function refresh(){await load();render()}
+
+// ───── Accueil ─────
+function home(){
+  const mo=today().slice(0,7),y=mo.slice(0,4),sum=f=>D.p.filter(f).reduce((a,p)=>a+Number(p.amount),0);
+  const u=D.b.reduce((a,b)=>a+Math.max(Number(b.balance),0),0);
+  return `<div class="top"><h1>${esc(mb.name)}</h1><button class="b o" onclick="logout()">Quitter</button></div><div class="g"><div class="k"><small>Encaissé ce mois</small><b>${F(sum(p=>p.paid_on.startsWith(mo)))}</b></div><div class="k"><small>Encaissé cette année</small><b>${F(sum(p=>p.paid_on.startsWith(y)))}</b></div><div class="k"><small>Impayés</small><b class="r">${F(u)}</b></div><div class="k"><small>Élèves</small><b>${D.s.length}</b></div></div>`+
+  (D.c.length?`<div class="bt"><button class="b" onclick="go('st');fSt()">+ Élève</button></div>`:`<div class="c" style="margin-top:14px"><p>Bienvenue ! Commencez par ajouter une classe, puis vos élèves.</p><button class="b" onclick="go('cl');fCl()">Ajouter une classe</button></div>`);
+}
+
+// ───── Classes ─────
+function classes(){
+  return `<div class="top"><h1>Classes</h1>${isDir()?'<button class="b" onclick="fCl()">+ Classe</button>':''}</div>`+
+  (D.c.map(c=>`<div class="c row" style="cursor:default"><b>${esc(c.name)}</b><span class="mu">${D.e.filter(e=>e.class_id===c.id).length} élèves</span></div>`).join('')||'<p class="mu">Aucune classe. Ajoutez CP1, CE2, 6ème…</p>');
+}
+function fCl(){M(`<h2>Nouvelle classe</h2><input id="n" placeholder="Nom (ex : CE2)"><button class="b" style="width:100%" onclick="svCl()">Enregistrer</button>`)}
+async function svCl(){
+  const n=$('#n').value.trim();if(!n)return;
+  if(!YR)return toast('Année scolaire introuvable');
+  const r=await sb.from('classes').insert({school_id:mb.sid,academic_year_id:YR,name:n});
+  if(r.error)return er(r.error);M();refresh();
+}
+
+// ───── Élèves ─────
+const list=()=>{
+  const r=D.s.filter(s=>(s.last_name+' '+s.first_name+' '+s.matricule).toLowerCase().includes(q.toLowerCase()));
+  return r.length?r.map(s=>`<div class="c row" onclick="cur='${s.id}';render()"><div><b>${esc(s.last_name)} ${esc(s.first_name)}</b><small>${esc(cn(s.id))} · ${esc(s.matricule)}</small></div><span class="t ${rest(s.id)>0?'bad':'ok'}">${rest(s.id)>0?F(rest(s.id)):'Soldé'}</span></div>`).join(''):'<p class="mu">Aucun élève.</p>';
+};
+function students(){
+  return `<div class="top"><h1>Élèves</h1><button class="b" onclick="fSt()">+ Élève</button></div><input placeholder="Rechercher…" value="${esc(q)}" oninput="q=this.value;$('#ls').innerHTML=list()"><div id="ls">${list()}</div>`;
+}
+function fSt(){
+  if(!D.c.length){M('<p>Ajoutez d’abord une classe.</p><button class="b" onclick="M();go(\'cl\')">OK</button>');return}
+  M(`<h2>Nouvel élève</h2><input id="ln" placeholder="Nom"><input id="fn" placeholder="Prénom"><select id="c">${D.c.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select><input id="gn" placeholder="Nom du parent"><input id="gp" type="tel" placeholder="Téléphone du parent"><input id="fee" type="number" inputmode="numeric" placeholder="Scolarité annuelle (FCFA)"><button class="b" style="width:100%" onclick="svSt()">Enregistrer</button>`);
+}
+async function svSt(){
+  const ln=$('#ln').value.trim(),fn=$('#fn').value.trim(),fee=+$('#fee').value||0;
+  if(!ln||!fn)return toast('Nom et prénom requis');
+  const mat='M'+Math.random().toString(36).slice(2,7).toUpperCase();
+  const s=await sb.from('students').insert({school_id:mb.sid,matricule:mat,last_name:ln,first_name:fn,guardian_name:$('#gn').value.trim()||null,guardian_phone:$('#gp').value.trim()||null}).select('id').single();
+  if(s.error)return er(s.error);
+  const e=await sb.from('enrollments').insert({school_id:mb.sid,student_id:s.data.id,class_id:$('#c').value,academic_year_id:YR});
+  if(e.error)return er(e.error);
+  if(fee>0){
+    const i=await sb.from('invoices').insert({school_id:mb.sid,student_id:s.data.id,academic_year_id:YR,fee_type_id:FT,amount_due:fee,description:'Scolarité'});
+    if(i.error)er(i.error);
+  }
+  M();refresh();
+}
+function detail(){
+  const s=sOf(cur);if(!s){cur=null;return students()}
+  const inv=D.b.filter(b=>b.student_id===s.id),ids=inv.map(b=>b.invoice_id);
+  const ps=D.p.filter(p=>ids.includes(p.invoice_id)).sort((a,b)=>b.created_at.localeCompare(a.created_at));
+  const r=rest(s.id);
+  return `<button class="b o" onclick="cur=null;render()">← Retour</button><h1 style="margin-top:14px">${esc(s.last_name)} ${esc(s.first_name)}</h1><div class="c"><small class="mu">${esc(cn(s.id))} · ${esc(s.matricule)}<br>Parent : ${esc(s.guardian_name||'—')} ${esc(s.guardian_phone||'')}</small><div class="g" style="margin-top:10px"><div><small class="mu">À payer</small><br><b>${F(due(s.id))}</b></div><div><small class="mu">Reste</small><br><b class="${r>0?'r':''}">${F(Math.max(r,0))}</b></div></div></div>`+
+  (isFin()?inv.filter(b=>Number(b.balance)>0).map(b=>`<div class="bt"><button class="b" onclick="fPay('${b.invoice_id}')">+ Paiement (reste ${F(b.balance)})</button></div>`).join(''):'')+
+  (r>0&&s.guardian_phone?`<a class="b o" style="display:block;margin-bottom:10px" target="_blank" rel="noopener" href="${wa(s.guardian_phone,remind(s))}">Relancer sur WhatsApp</a>`:'')+
+  `<h2>Historique</h2>`+
+  (ps.map(p=>{const rv=D.p.some(x=>x.reverses_payment_id===p.id);return `<div class="c row" style="cursor:default"><div><b class="${p.kind==='reversal'?'r':''}">${F(p.amount)}</b><small>${p.kind==='reversal'?'Annulation':MT[p.method]||p.method} · ${fd(p.paid_on)}${rv?' · annulé':''}</small></div><div><button class="b o" onclick="rc('${p.id}')">Reçu</button>${isDir()&&p.kind==='payment'&&!rv?` <button class="b o" onclick="fRev('${p.id}')">Annuler</button>`:''}</div></div>`}).join('')||'<p class="mu">Aucun paiement.</p>')+
+  ((isDir()||mb.role==='secretary')?`<button class="b o" style="margin-top:10px" onclick="ask('Archiver cet élève ?','arch','${s.id}')">Archiver l’élève</button>`:'');
+}
+function ask(t,f,id){A=()=>window[f](id);M(`<p>${t}</p><div class="bt"><button class="b" onclick="A();M()">Oui</button><button class="b o" onclick="M()">Non</button></div>`)}
+async function arch(id){const r=await sb.from('students').update({status:'archived'}).eq('id',id);if(r.error)return er(r.error);cur=null;refresh()}
+
+// ───── Paiements et reçus ─────
+function fPay(inv){
+  const b=D.b.find(x=>x.invoice_id===inv);
+  M(`<h2>Paiement</h2><input id="a" type="number" inputmode="numeric" placeholder="Montant (FCFA)" value="${b?b.balance:''}"><input id="d" type="date" value="${today()}"><select id="m"><option value="cash">Espèces</option><option value="mobile_money">Mobile Money</option><option value="transfer">Virement</option><option value="other">Autre</option></select><input id="rf" placeholder="Référence (facultatif)"><button class="b" style="width:100%" onclick="svPay('${inv}')">Enregistrer</button>`);
+}
+async function svPay(inv){
+  const a=+$('#a').value;if(!(a>0))return toast('Montant invalide');
+  const r=await sb.rpc('record_payment',{p_invoice:inv,p_amount:a,p_method:$('#m').value,p_paid_on:$('#d').value||today(),p_reference:$('#rf').value.trim()||null,p_note:null});
+  if(r.error)return er(r.error);
+  await load();render();rc(r.data.id);
+}
+function fRev(id){M(`<h2>Annuler le paiement</h2><p class="mu">Une contre-écriture sera créée. Le paiement d’origine reste visible.</p><input id="rs" placeholder="Motif (obligatoire)"><button class="b" style="width:100%" onclick="svRev('${id}')">Confirmer l’annulation</button>`)}
+async function svRev(id){
+  const r=await sb.rpc('reverse_payment',{p_payment:id,p_reason:$('#rs').value});
+  if(r.error)return er(r.error);M();refresh();
+}
+function rc(id){
+  const p=D.p.find(x=>x.id===id);if(!p)return;
+  const b=D.b.find(x=>x.invoice_id===p.invoice_id),s=b&&sOf(b.student_id);if(!s)return;
+  const r=Math.max(rest(s.id),0),n=String(p.receipt_number).padStart(5,'0');
+  const m=`Reçu n° ${n} — ${mb.name} : ${F(p.amount)} pour ${s.first_name} ${s.last_name} le ${fd(p.paid_on)}. Reste à payer : ${F(r)}. Merci.`;
+  M(`<div id="rc"><h2>${esc(mb.name)}</h2><p class="mu">Reçu n° ${n}${p.kind==='reversal'?' (annulation)':''}</p><p>Élève : <b>${esc(s.last_name)} ${esc(s.first_name)}</b><br>Classe : ${esc(cn(s.id))}<br>Date : ${fd(p.paid_on)}<br>Mode : ${MT[p.method]||p.method}${p.reference?'<br>Réf. : '+esc(p.reference):''}</p><p class="big">${F(p.amount)}</p><p>Reste à payer : <b>${F(r)}</b></p></div><div class="bt"><button class="b" onclick="print()">Imprimer</button>${s.guardian_phone?`<a class="b o" target="_blank" rel="noopener" href="${wa(s.guardian_phone,m)}">WhatsApp</a>`:''}</div><button class="b o" style="width:100%" onclick="M()">Fermer</button>`);
+}
+
+// ───── Impayés ─────
+function unpaid(){
+  const r=D.s.filter(s=>rest(s.id)>0).sort((a,b)=>rest(b.id)-rest(a.id)),tot=r.reduce((a,s)=>a+rest(s.id),0);
+  return `<h1>Impayés</h1><div class="k"><small>Total à recouvrer</small><b class="r">${F(tot)}</b></div>`+
+  (r.map(s=>`<div class="c"><div class="row" onclick="cur='${s.id}';tab='st';render()"><div><b>${esc(s.last_name)} ${esc(s.first_name)}</b><small>${esc(cn(s.id))}</small></div><span class="t bad">${F(rest(s.id))}</span></div>${s.guardian_phone?`<a class="b o" style="margin-top:10px;display:block" target="_blank" rel="noopener" href="${wa(s.guardian_phone,remind(s))}">Relancer sur WhatsApp</a>`:''}</div>`).join('')||'<p class="mu">Aucun impayé 🎉</p>');
+}
+boot();
+</script></body></html>
